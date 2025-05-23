@@ -1,0 +1,172 @@
+# Byte-compiled / optimized / DLL files
+__pycache__/
+*.py[cod]
+*$py.class
+
+# C extensions
+*.so
+
+# Distribution / packaging
+.Python
+build/
+develop-eggs/
+dist/
+downloads/
+eggs/
+.eggs/
+lib/
+lib64/
+parts/
+sdist/
+var/
+wheels/
+share/python-wheels/
+*.egg-info/
+.installed.cfg
+*.egg
+MANIFEST
+
+# PyInstaller
+# Usually these files are written by a PyInstaller script; this is targeted
+# towards preventing them from entering official git history.
+*.manifest
+*.spec
+
+# Installer logs
+pip-log.txt
+pip-delete-this-directory.txt
+
+# Unit test / coverage reports
+htmlcov/
+.tox/
+.nox/
+.coverage
+.coverage.*
+.cache
+nosetests.xml
+coverage.xml
+*.cover
+*.py,cover
+.hypothesis/
+.pytest_cache/
+
+# Translations
+*.mo
+*.pot
+
+# Django stuff:
+*.log
+local_settings.py
+db.sqlite3
+db.sqlite3-journal
+
+# Flask stuff:
+instance/
+.webassets-cache
+
+# Scrapy stuff:
+.scrapy
+
+# Sphinx documentation
+docs/_build/
+
+# PyBuilder
+target/
+
+# Jupyter Notebook
+.ipynb_checkpoints
+
+# IPython
+profile_default/
+ipython_config.py
+
+# pyenv
+#   For a library or package, you virtualenv's details maybe shouldn't be tracked.
+#   For apps, it's assumed that all developers work with the same versions of Python,
+#   so Python virtualenv details areEau Claire tracked.
+#   See https://github.com/github/gitignore/pull/2898
+# .python-version
+
+# pipenv
+# According to Python official guidance, Pipfile.lock is tracked.
+# Pipfile.lock
+
+# PEP 582; __pypackages__ directory
+__pypackages__/
+
+# Celery stuff
+celerybeat-schedule
+celerybeat.pid
+
+# SageMath parsed files
+*.sage.py
+
+# Environments
+.env
+.env.local
+.env.*.local
+.envrc
+.direnv/
+env/
+venv/
+ENV/
+env.bak/
+venv.bak/
+
+# Docker
+docker-compose.override.yml
+# Ignore Docker build context files if they are ever generated separately
+!.dockerignore
+.dockerignore
+
+# Database files (SQLite, ChromaDB data, etc. generated at runtime within bind-mounted folders)
+# Assuming your bind-mounted data directories are within rag_files/ as planned
+rag_files/metadata_db/*.db
+rag_files/metadata_db/*.db-journal
+rag_files/metadata_db/*.sqlite
+rag_files/metadata_db/*.sqlite-journal
+rag_files/vector_stores/chroma_data/*
+# If you have other specific runtime data files in other rag_files subdirectories (like 'data'),
+# you might want to ignore specific patterns or all contents if they are purely runtime generated.
+# For example, to ignore all files directly under rag_files/data/ but not the directory itself:
+# rag_files/data/*
+# !rag_files/data/.gitkeep 
+# However, be cautious with broad wildcards if you intend to commit some example files there.
+
+# OS generated files
+.DS_Store
+.DS_Store?
+._*
+.Spotlight-V100
+.Trashes
+ehthumbs.db
+Thumbs.db
+desktop.ini
+
+# IDE settings folders
+.idea/
+.vscode/
+*.project
+*.pydevproject
+*.sublime-project
+*.sublime-workspace
+
+# Log files
+*.log
+logs/
+*.log.*
+
+# N8N - if any local state files are generated (unlikely for JSON definitions)
+# .n8n/local-storage/
+
+# Temporary files
+*.tmp
+*.bak
+*.swp
+*~
+
+# If you use poetry
+# poetry.lock -- usually committed, like Pipfile.lock
+
+# If you use mkdocs
+site/
