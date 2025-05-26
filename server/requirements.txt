@@ -1,4 +1,5 @@
 # server/requirements.txt
 fastapi
-uvicorn
-# pydantic-settings>=2.2.0,<2.3.0 # Will add when we do config.py
+uvicorn[standard]
+pydantic-settings
+httpx

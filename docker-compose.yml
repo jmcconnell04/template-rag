@@ -21,3 +21,26 @@ services:
       - .env # Loads environment variables from the .env file in the root
     restart: unless-stopped
     container_name: '${WORKSPACE_NAME}-server' # Dynamically names the container
+
+  ollama:
+    image: ollama/ollama:latest
+    ports:
+      # Expose Ollama on host port 11434 for direct interaction or model pulling
+      # Ensure this port is free or change if needed, especially if running multiple Ollama instances.
+      - '11434:11434'
+    volumes:
+      - ollama_vol:/root/.ollama # Persists Ollama models and data
+    container_name: '${WORKSPACE_NAME}-ollama'
+    restart: unless-stopped
+    # GPU deployment settings will be in docker-compose.gpu.yml
+    # deploy:
+    #   resources:
+    #     reservations:
+    #       devices:
+    #         - driver: nvidia
+    #           count: all
+    #           capabilities: [gpu]
+
+volumes:
+  ollama_vol: # Defines the named volume for Ollama
+    name: 'ollama-${WORKSPACE_NAME}' # Dynamically named based on WORKSPACE_NAME from .env

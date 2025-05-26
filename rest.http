@@ -1,1 +1,55 @@
-get http://localhost:8000/health
+### Health Check
+# Checks if the server is running and healthy.
+GET http://localhost:8000/health
+Accept: application/json
+
+### Root Endpoint
+# Displays a welcome message and some configuration details.
+GET http://localhost:8000/
+Accept: application/json
+
+### Test Ollama Prompt (gemma:2b - default model for the endpoint)
+# Sends a prompt to Ollama using the default model specified in the server's endpoint logic (gemma:2b).
+# Ensure you have pulled 'gemma:2b' into your Ollama instance first:
+# docker exec -it YOUR_WORKSPACE_NAME-ollama-1 ollama pull gemma:2b
+POST http://localhost:8000/test_ollama_prompt
+Content-Type: application/json
+
+{
+  "prompt": "Why is the sky blue during the day?"
+}
+
+### Test Ollama Prompt (explicitly gemma:2b)
+# Same as above, but explicitly specifies gemma:2b
+POST http://localhost:8000/test_ollama_prompt
+Content-Type: application/json
+
+{
+  "model": "gemma:2b",
+  "prompt": "What are the main components of a cell?"
+}
+
+### Test Ollama Prompt (qwen:1.8b - if pulled)
+# Sends a prompt to Ollama using the qwen:1.8b model.
+# Ensure you have pulled 'qwen:1.8b' into your Ollama instance first:
+# docker exec -it YOUR_WORKSPACE_NAME-ollama-1 ollama pull qwen:1.8b
+POST http://localhost:8000/test_ollama_prompt
+Content-Type: application/json
+
+{
+  "model": "qwen:1.8b",
+  "prompt": "Tell me a short story about a robot who learns to paint."
+}
+
+### Test Ollama Prompt (llama3:70b - if pulled and you have resources)
+# Sends a prompt to Ollama using the llama3:70b model.
+# This is a large model and requires significant resources.
+# Ensure you have pulled 'llama3:70b' into your Ollama instance first:
+# docker exec -it YOUR_WORKSPACE_NAME-ollama-1 ollama pull llama3:70b
+POST http://localhost:8000/test_ollama_prompt
+Content-Type: application/json
+
+{
+  "model": "llama3:70b",
+  "prompt": "Explain the theory of general relativity in simple terms."
+}
