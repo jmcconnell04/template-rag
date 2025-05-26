@@ -1,0 +1,23 @@
+# docker-compose.yml
+version: '3.8'
+
+services:
+  server:
+    build:
+      context: ./server # Specifies the build context is the 'server' directory
+      dockerfile: Dockerfile # Specifies the Dockerfile name (optional if it's 'Dockerfile')
+    ports:
+      # Maps RAG_API_HOST_PORT (from .env, defaults to 8000 if not set) on your host
+      # to port 8000 inside the container where Uvicorn is running.
+      - '${RAG_API_HOST_PORT:-8000}:8000'
+    volumes:
+      # For development: Mounts your local './server/app' directory
+      # to '/app/app' inside the container.
+      # This means changes you make to your Python code locally will be reflected
+      # inside the container without needing to rebuild the image.
+      # For Uvicorn to pick up changes automatically, you'd add '--reload' to its CMD.
+      - ./server/app:/app/app
+    env_file:
+      - .env # Loads environment variables from the .env file in the root
+    restart: unless-stopped
+    container_name: '${WORKSPACE_NAME}-server' # Dynamically names the container
