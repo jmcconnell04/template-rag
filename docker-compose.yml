@@ -41,6 +41,33 @@ services:
     #           count: all
     #           capabilities: [gpu]
 
+  open_webui:
+    image: ghcr.io/open-webui/open-webui:main # Using the official image
+    ports:
+      - '${OPENWEBUI_HOST_PORT:-3000}:8080' # OWI runs on 8080 in container
+    environment:
+      # CRITICAL: Point OpenWebUI to your custom server's OpenAI-compatible API
+      # The '/v1' suffix is conventional for OpenAI-like APIs.
+      - 'OPENAI_API_BASE_URL=http://server:8000/v1'
+      # OpenWebUI requires an API key to be set, even if your server doesn't strictly validate it
+      # for this internal Docker network communication for now.
+      - 'OPENAI_API_KEY=your_dummy_api_key_for_openwebui'
+      # Optional: Disable Telemetry for OpenWebUI
+      - 'ENABLE_TELEMETRY=false'
+      # You can set initial admin credentials for OpenWebUI here.
+      # If not set, the first user to sign up usually becomes admin.
+      # Replace with desired admin credentials.
+      - 'WEBUI_ADMIN_USER_EMAIL=${WEBUI_ADMIN_USER_EMAIL}'
+      - 'WEBUI_ADMIN_USER_PASSWORD=${WEBUI_ADMIN_USER_PASSWORD}'
+    volumes:
+      - openwebui_vol:/app/backend/data # Persists OpenWebUI data (users, chats, settings)
+    container_name: '${WORKSPACE_NAME}-open-webui'
+    depends_on:
+      - server # Ensures your server is started before OpenWebUI attempts to connect
+    restart: unless-stopped
+
 volumes:
   ollama_vol: # Defines the named volume for Ollama
     name: 'ollama-${WORKSPACE_NAME}' # Dynamically named based on WORKSPACE_NAME from .env
+  openwebui_vol: # Define the named volume for OpenWebUI
+    name: 'openwebui-${WORKSPACE_NAME}'
