@@ -1,27 +1,43 @@
 # server/app/db/database.py
-from sqlalchemy import create_engine
+from sqlalchemy import create_engine, event # Add event
+from sqlalchemy.engine import Engine      # Add Engine
 from sqlalchemy.orm import sessionmaker
 from sqlalchemy.ext.declarative import declarative_base
 
-# The database file will be created in the '/app/database/' directory inside the container,
-# which is bind-mounted from './rag_files/metadata_db/' on the host.
 DATABASE_FILE_NAME = "app_data.db"
 SQLALCHEMY_DATABASE_URL = f"sqlite:////app/database/{DATABASE_FILE_NAME}"
 
 engine = create_engine(
     SQLALCHEMY_DATABASE_URL,
-    connect_args={"check_same_thread": False}  # Required for SQLite with FastAPI/multi-threading
+    connect_args={"check_same_thread": False}
 )
+
+# Set PRAGMA busy_timeout on new connections to SQLite
+@event.listens_for(Engine, "connect")
+def set_sqlite_busy_timeout(dbapi_connection, connection_record):
+    # This event is triggered each time SQLAlchemy makes a new DBAPI connection.
+    # For SQLite, dbapi_connection is a sqlite3.Connection object.
+    cursor = dbapi_connection.cursor()
+    try:
+        # Set timeout to 5000 milliseconds (5 seconds)
+        cursor.execute("PRAGMA busy_timeout = 5000")
+        print("INFO:     SQLite PRAGMA busy_timeout set to 5000ms for new connection.")
+    except Exception as e:
+        # Log if setting pragma fails, though it's unlikely for busy_timeout
+        print(f"WARNING:  Failed to set PRAGMA busy_timeout: {e}")
+    finally:
+        cursor.close()
 
 SessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engine)
 
 Base = declarative_base()
 
-# Function to create all tables defined that inherit from Base
 def create_db_and_tables():
+    print(f"INFO:     Database URL: {SQLALCHEMY_DATABASE_URL}")
+    print("INFO:     Initializing database and creating tables if they don't exist...")
     Base.metadata.create_all(bind=engine)
+    print("INFO:     Database tables checked/created.")
 
-# Dependency for FastAPI to get a DB session for each request
 def get_db():
     db = SessionLocal()
     try:
