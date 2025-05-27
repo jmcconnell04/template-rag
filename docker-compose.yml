@@ -17,6 +17,11 @@ services:
       # inside the container without needing to rebuild the image.
       # For Uvicorn to pick up changes automatically, you'd add '--reload' to its CMD.
       - ./server/app:/app/app
+      - ./prompts:/app/prompts:ro
+      - ./rag_files/metadata_db:/app/database # This line is for SQLite
+      # - ./rag_files/seed:/app/seed_data:ro # For later
+      # - ./rag_files/data:/app/data # For later
+      # - ./rag_files/vector_stores/chroma_data:/app/chroma_data # For later
     env_file:
       - .env # Loads environment variables from the .env file in the root
     restart: unless-stopped
