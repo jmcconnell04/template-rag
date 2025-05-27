@@ -2,6 +2,9 @@ from sqlalchemy.orm import Session
 from ..db import models as db_models 
 from ..openai_models import ChatMessageInput # For type hinting history if needed
 from typing import List, Optional
+import logging
+
+logger = logging.getLogger(__name__)
 
 def get_or_create_user(db: Session, user_identifier: str) -> db_models.User:
     user = db.query(db_models.User).filter(db_models.User.id == user_identifier).first()
@@ -10,7 +13,7 @@ def get_or_create_user(db: Session, user_identifier: str) -> db_models.User:
         db.add(user)
         db.commit()
         db.refresh(user)
-        print(f"INFO:     ChatService: User '{user_identifier}' created.")
+        logger.info(f"User '{user_identifier}' created.")
     return user
 
 def get_or_create_project(db: Session, project_name: str, description: Optional[str] = None) -> db_models.Project:
@@ -21,7 +24,7 @@ def get_or_create_project(db: Session, project_name: str, description: Optional[
         db.add(project)
         db.commit()
         db.refresh(project)
-        print(f"INFO:     ChatService: Project '{project_name}' (ID: {project.id}) created.")
+        logger.info(f"Project '{project_name}' (ID: {project.id}) created.")
     return project
 
 def ensure_user_linked_to_project(db: Session, user_id: str, project_id: str):
@@ -31,7 +34,7 @@ def ensure_user_linked_to_project(db: Session, user_id: str, project_id: str):
         link = db_models.ProjectUserLink(user_id=user_id, project_id=project_id)
         db.add(link)
         db.commit()
-        print(f"INFO:     ChatService: User '{user_id}' linked to project '{project_id}'.")
+        logger.info(f"User '{user_id}' linked to project '{project_id}'.")
 
 def get_or_create_conversation(
     db: Session,
@@ -63,7 +66,7 @@ def get_or_create_conversation(
         db.add(conversation)
         db.commit()
         db.refresh(conversation)
-        print(f"INFO:     ChatService: Conversation '{conversation_id_from_owi}' created in project '{project_id}'.")
+        logger.info(f"Conversation '{conversation_id_from_owi}' created in project '{project_id}'.")
     return conversation
 
 def add_message_to_database( # Renamed from add_message_to_db for clarity
@@ -76,7 +79,7 @@ def add_message_to_database( # Renamed from add_message_to_db for clarity
 ) -> db_models.Message:
     """Adds a message to the specified conversation in the database."""
     if role == "user" and not author_user_id:
-        print(f"WARNING:  Attempting to save user message for conversation '{conversation_id}' without author_user_id.")
+        logger.warning(f"Attempting to save user message for conversation '{conversation_id}' without author_user_id.")
         # Decide handling: raise error, use a default 'anonymous' user, or allow author_user_id to be NULL
         # For now, we allow author_user_id to be NULL in the Message model for assistant messages.
         # But for user messages, it should ideally always be present.
@@ -92,7 +95,7 @@ def add_message_to_database( # Renamed from add_message_to_db for clarity
     db.add(db_message)
     db.commit()
     db.refresh(db_message)
-    # print(f"INFO:     ChatService: Message (Role: {role}) by '{author_user_id if author_user_id else 'assistant'}' added to conv '{conversation_id}'.")
+    # logger.info(f"Message (Role: {role}) by '{author_user_id if author_user_id else 'assistant'}' added to conv '{conversation_id}'.")
     return db_message
 
 def get_message_history_for_llm_context(db: Session, conversation_id: str, last_n_messages: int = 10) -> List[ChatMessageInput]:

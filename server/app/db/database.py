@@ -3,6 +3,9 @@ from sqlalchemy import create_engine, event # Add event
 from sqlalchemy.engine import Engine      # Add Engine
 from sqlalchemy.orm import sessionmaker
 from sqlalchemy.ext.declarative import declarative_base
+import logging
+
+logger = logging.getLogger(__name__)
 
 DATABASE_FILE_NAME = "app_data.db"
 SQLALCHEMY_DATABASE_URL = f"sqlite:////app/database/{DATABASE_FILE_NAME}"
@@ -21,10 +24,10 @@ def set_sqlite_busy_timeout(dbapi_connection, connection_record):
     try:
         # Set timeout to 5000 milliseconds (5 seconds)
         cursor.execute("PRAGMA busy_timeout = 5000")
-        print("INFO:     SQLite PRAGMA busy_timeout set to 5000ms for new connection.")
+        logger.info("SQLite PRAGMA busy_timeout set to 5000ms for new connection.")
     except Exception as e:
         # Log if setting pragma fails, though it's unlikely for busy_timeout
-        print(f"WARNING:  Failed to set PRAGMA busy_timeout: {e}")
+        logger.warning(f"Failed to set PRAGMA busy_timeout: {e}")
     finally:
         cursor.close()
 
@@ -33,10 +36,10 @@ SessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engine)
 Base = declarative_base()
 
 def create_db_and_tables():
-    print(f"INFO:     Database URL: {SQLALCHEMY_DATABASE_URL}")
-    print("INFO:     Initializing database and creating tables if they don't exist...")
+    logger.info(f"Database URL: {SQLALCHEMY_DATABASE_URL}")
+    logger.info("Initializing database and creating tables if they don't exist...")
     Base.metadata.create_all(bind=engine)
-    print("INFO:     Database tables checked/created.")
+    logger.info("Database tables checked/created.")
 
 def get_db():
     db = SessionLocal()
