@@ -7,3 +7,8 @@ sqlalchemy
 chromadb                # Vector store
 sentence-transformers   # For generating text embeddings
 # tiktoken              # Optional, but often useful with sentence-transformers or for token counting
+
+
+# --- Add these for Cloud LLMs ---
+google-generativeai   # For Google Gemini
+openai                # For OpenAI API (GPT models)
