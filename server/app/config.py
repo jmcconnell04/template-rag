@@ -23,6 +23,10 @@ class Settings(BaseSettings):
 
     # Seeding configuration
     AUTO_SEED_ON_STARTUP: bool = True
+    CHROMA_PERSIST_DIRECTORY: str = "/app/chroma_data"  # Path inside the container for ChromaDB data
+    DEFAULT_EMBEDDING_MODEL: str = "all-MiniLM-L6-v2" # A good, small, general-purpose sentence transformer
+    RAG_TOP_K: int = 3  # Number of relevant document chunks to retrieve for context
+
 
     # For loading from .env file
     model_config = SettingsConfigDict(env_file=".env", env_file_encoding='utf-8', extra='ignore')
