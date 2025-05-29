@@ -1,0 +1,22 @@
+# docker-compose.gpu.yml
+# Use this file as an override to enable GPU support for Ollama.
+# Command: docker-compose -f docker-compose.yml -f docker-compose.gpu.yml up -d
+# Or if using Postgres: docker-compose -f docker-compose.postgres.yml -f docker-compose.gpu.yml up -d
+
+services:
+  ollama:
+    # Important: Ensure the image and other settings match your main compose file if not extending.
+    # If your main compose file already defines ollama, this will merge/override.
+    deploy:
+      resources:
+        reservations:
+          devices:
+            - driver: nvidia
+              count: all # Use 'all' available GPUs, or specify a count e.g., 1
+              capabilities: [gpu, utility, compute] # 'gpu' is often an alias for all common capabilities
+    environment:
+      # Ensures Ollama runtime can see the NVIDIA devices passed by Docker.
+      - NVIDIA_VISIBLE_DEVICES=all
+      # Optional: You might experiment with OLLAMA_NUM_GPU to control layers offloaded,
+      # but 'all' visible devices is a good starting point.
+      # - OLLAMA_NUM_GPU=1 # Example: if you want to limit Ollama to 1 GPU

@@ -51,6 +51,78 @@ def initialize_llm_clients():
     else:
         logger.info("LLMService: Gemini API key not found. Gemini models will be unavailable.")
 
+async def pull_ollama_model(model_name: str):
+    """Pulls a specific model into Ollama if it doesn't exist."""
+    if not settings.OLLAMA_BASE_URL:
+        logger.error(f"Ollama base URL not configured. Cannot pull model {model_name}.")
+        return False
+    
+    # Check if model exists first (optional, as /api/pull might handle it)
+    try:
+        tags_response = await http_client.get(f"{settings.OLLAMA_BASE_URL.rstrip('/')}/api/tags")
+        tags_response.raise_for_status()
+        available_models = tags_response.json().get("models", [])
+        for model_info in available_models:
+            if model_info.get("name") == model_name:
+                logger.info(f"Ollama model '{model_name}' already exists locally.")
+                return True
+    except Exception as e:
+        logger.warning(f"Could not check existing Ollama models before pulling '{model_name}': {e}. Proceeding with pull attempt.")
+
+    logger.info(f"Attempting to pull Ollama model: {model_name}...")
+    pull_payload = {"name": model_name, "stream": False} # Stream false for a single status update
+    try:
+        # Ollama's pull can be long-running. Increase timeout significantly.
+        # The stream=False will make it block until done or error.
+        # For a better UX during startup, stream=True and handling progress would be ideal,
+        # but for v1, a blocking pull with a long timeout on startup is simpler to implement.
+        async with http_client.stream("POST", f"{settings.OLLAMA_BASE_URL.rstrip('/')}/api/pull", json=pull_payload, timeout=1800.0) as response: # 30 min timeout
+            async for line in response.aiter_lines():
+                if line:
+                    try:
+                        chunk = json.loads(line)
+                        status = chunk.get("status", "")
+                        # Basic progress logging
+                        if "total" in chunk and "completed" in chunk:
+                            progress = (chunk['completed'] / chunk['total']) * 100
+                            logger.info(f"Pulling {model_name}: {status} - {progress:.2f}%")
+                        else:
+                            logger.info(f"Pulling {model_name}: {status}")
+                        
+                        if chunk.get("error"):
+                            logger.error(f"Error pulling Ollama model '{model_name}': {chunk.get('error')}")
+                            return False
+                        # "success" status might appear in the last chunk if stream=false wasn't fully respected by client or if API changed
+                        # For stream=false, it should ideally be a single JSON response after completion.
+                        # However, robustly checking last status or overall response status code is better.
+                    except json.JSONDecodeError:
+                        logger.warning(f"Non-JSON response while pulling {model_name}: {line}")
+            
+            if response.status_code == 200: # Check HTTP status after stream
+                 logger.info(f"Ollama model '{model_name}' pulled successfully (or was already up to date).")
+                 return True
+            else:
+                error_content = await response.aread()
+                logger.error(f"Failed to pull Ollama model '{model_name}'. Status: {response.status_code}, Response: {error_content.decode()}")
+                return False
+
+    except httpx.TimeoutException:
+        logger.error(f"Timeout while trying to pull Ollama model '{model_name}'. This can happen with large models.")
+        return False
+    except Exception as e:
+        logger.error(f"An error occurred while pulling Ollama model '{model_name}': {e}", exc_info=True)
+        return False
+
+async def ensure_default_ollama_models():
+    """Checks and pulls default Ollama models specified in settings."""
+    if not settings.DEFAULT_OLLAMA_MODELS_TO_PULL:
+        logger.info("No default Ollama models specified in settings to pull.")
+        return
+
+    logger.info(f"Checking/Pulling default Ollama models: {settings.DEFAULT_OLLAMA_MODELS_TO_PULL}")
+    for model_name in settings.DEFAULT_OLLAMA_MODELS_TO_PULL:
+        await pull_ollama_model(model_name) # Pull one by one for clearer logging
+
 async def close_llm_clients():
     """Called from main.py shutdown."""
     global openai_llm_client

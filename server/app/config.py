@@ -1,7 +1,7 @@
 # server/app/config.py
 from pydantic_settings import BaseSettings, SettingsConfigDict
 from pydantic import Field # Import Field for accessing default
-from typing import Optional
+from typing import Optional, List
 
 class Settings(BaseSettings):
     # --- General Workspace & Server Config ---
@@ -15,6 +15,7 @@ class Settings(BaseSettings):
 
     # --- Ollama Configuration ---
     OLLAMA_BASE_URL: str = "http://ollama:11434"
+    DEFAULT_OLLAMA_MODELS_TO_PULL: List[str] = Field(default_factory=lambda: ["devstral:latest", "gemma:latest"])
 
     # --- Database Configuration ---
     DB_TYPE: str = "sqlite" 

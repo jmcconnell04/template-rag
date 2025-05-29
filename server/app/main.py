@@ -30,34 +30,38 @@ active_project_for_user: Dict[str, str] = {}
 # --- Startup and Shutdown Events ---
 @app.on_event("startup")
 async def startup_event():
-    setup_logging() # Call this first to configure logging for the entire app
+    setup_logging() 
     logger.info("RAG Server on_event[startup] triggered.")
 
     llm_services.initialize_llm_clients() 
     
+    # Attempt to pull default Ollama models
+    # This assumes Ollama service is up or starting up due to depends_on
+    try:
+        logger.info("Attempting to ensure default Ollama models are pulled...")
+        await llm_services.ensure_default_ollama_models()
+        logger.info("Default Ollama model check/pull process complete.")
+    except Exception as e:
+        logger.error(f"Error during ensure_default_ollama_models: {e}", exc_info=True)
+
     create_db_and_tables()
     active_project_for_user.clear() 
 
     db: Session = SessionLocal()
     try:
-        project_name = f"{settings.WORKSPACE_NAME} Project"
-        project = chat_service.get_or_create_project(db, project_name=project_name, description=f"Default project for workspace '{settings.WORKSPACE_NAME}'")
-        
-        admin_user_identifier = settings.WEBUI_ADMIN_USER_EMAIL
-        if not admin_user_identifier: 
-            admin_user_identifier = f"admin_{settings.WORKSPACE_NAME}"
-        
-        user = chat_service.get_or_create_user(db, user_identifier=admin_user_identifier)
+        # ... (Default project and admin user linking logic as before) ...
+        project_name = f"{settings.WORKSPACE_NAME} Project"; project = chat_service.get_or_create_project(db, project_name=project_name, description=f"Default project for workspace '{settings.WORKSPACE_NAME}'")
+        admin_user_identifier = settings.WEBUI_ADMIN_USER_EMAIL if settings.WEBUI_ADMIN_USER_EMAIL else f"admin_{settings.WORKSPACE_NAME}"
+        user = chat_service.get_or_create_user(db, user_identifier=admin_user_identifier) # Param name check
         chat_service.ensure_user_linked_to_project(db, user_id=user.id, project_id=project.id)
         logger.info(f"Default project '{project.name}' (ID: {project.id}) linked to user '{user.id}'.")
 
         if settings.AUTO_SEED_ON_STARTUP:
-            if rag_service.is_rag_service_ready(): # Use the new readiness check
+            # ... (seeding logic as before) ...
+            if rag_service.is_rag_service_ready():
                 logger.info(f"AUTO_SEED_ON_STARTUP true. Seeding for project '{project.id}'...")
-                seed_dir = "/app/seed_data" 
-                rag_service.seed_documents_from_directory(project_id=project.id, seed_dir_path=seed_dir)
-            else: 
-                logger.warning("AUTO_SEED_ON_STARTUP true, but RAG service (Chroma/Embeddings) not properly initialized. Skipping seeding.")
+                seed_dir = "/app/seed_data"; rag_service.seed_documents_from_directory(project_id=project.id, seed_dir_path=seed_dir)
+            else: logger.warning("AUTO_SEED true, but RAG components not ready. Skipping seeding.")
     except Exception as e: 
         logger.error(f"Startup project/user/seed init error: {e}", exc_info=True)
     finally: 
@@ -86,13 +90,51 @@ async def read_root():
 async def list_models():
     logger.info("Fetching available models for /v1/models endpoint.")
     available_models = []
-    ollama_models = ["ollama/gemma:2b", "ollama/qwen:1.8b", "ollama/llama3:70b"] # Your specified models
-    for mid in ollama_models: available_models.append(ModelCard(id=mid, owned_by="Gen AI Enable"))
-    if settings.GEMINI_API_KEY: available_models.append(ModelCard(id="gemini/gemini-1.5-flash-latest", owned_by="Gen AI Enable"))
-    if settings.OPENAI_API_KEY: 
+
+    # Ollama models from settings
+    if settings.DEFAULT_OLLAMA_MODELS_TO_PULL:
+        for model_tag in settings.DEFAULT_OLLAMA_MODELS_TO_PULL:
+            # We advertise them with the "ollama/" prefix for routing in chat_completions
+            available_models.append(ModelCard(id=f"ollama/{model_tag}", owned_by="Gen AI Enable"))
+        logger.debug(f"Advertising Ollama models: {settings.DEFAULT_OLLAMA_MODELS_TO_PULL}")
+    else:
+        logger.warning("No DEFAULT_OLLAMA_MODELS_TO_PULL configured in settings.")
+        # Add a comment for developers on how to add more Ollama models:
+        # To add more Ollama models to be advertised:
+        # 1. Ensure they are pulled into your Ollama instance.
+        # 2. Add their exact tags (e.g., "mistral:latest") to the
+        #    DEFAULT_OLLAMA_MODELS_TO_PULL list in server/app/config.py or override via .env.
+
+    # Gemini models
+    if settings.GEMINI_API_KEY:
+        # You can expand this list if you want to support more specific Gemini model versions
+        # Ensure the model ID here matches what your gemini_chat_stream_generator expects
+        # (e.g., "gemini-1.5-flash-latest" without the "gemini/" prefix for the SDK usually)
+        available_models.append(ModelCard(id="gemini/gemini-1.5-flash-latest", owned_by="Gen AI Enable"))
+        logger.debug("Advertising Gemini models as GEMINI_API_KEY is set.")
+        # Comment for developers:
+        # To add more Gemini models:
+        # 1. Ensure your GEMINI_API_KEY has access to them.
+        # 2. Add a ModelCard entry here (e.g., ModelCard(id="gemini/gemini-1.5-pro-latest", ...)).
+        # 3. Update llm_services.py to handle the new model ID if specific logic is needed.
+    else:
+        logger.info("GEMINI_API_KEY not set. Gemini models will not be advertised.")
+
+
+    # OpenAI models
+    if settings.OPENAI_API_KEY and llm_services.openai_llm_client: # Check if client initialized
         available_models.append(ModelCard(id="openai/gpt-3.5-turbo", owned_by="Gen AI Enable"))
         available_models.append(ModelCard(id="openai/gpt-4o", owned_by="Gen AI Enable"))
-    logger.debug(f"Models being advertised: {[m.id for m in available_models]}")
+        logger.debug("Advertising OpenAI models as OPENAI_API_KEY is set and client initialized.")
+        # Comment for developers:
+        # To add more OpenAI models:
+        # 1. Ensure your OPENAI_API_KEY has access.
+        # 2. Add a ModelCard entry here.
+        # 3. Update llm_services.py if specific handling for the new model ID is needed.
+    else:
+        logger.info("OPENAI_API_KEY not set or client not initialized. OpenAI models will not be advertised.")
+        
+    logger.debug(f"Final list of models being advertised: {[m.id for m in available_models]}")
     return ModelList(data=available_models)
 
 # --- Context Helper ---
