@@ -1,7 +1,7 @@
 # server/app/logger_config.py
 import logging
 import sys
-from ..config import settings # To potentially use WORKSPACE_NAME or log level from config
+from .config import settings # To potentially use WORKSPACE_NAME or log level from config
 
 def setup_logging():
     # More advanced logging configuration can go here

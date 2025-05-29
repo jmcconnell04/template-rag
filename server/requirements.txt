@@ -12,3 +12,7 @@ sentence-transformers   # For generating text embeddings
 # --- Add these for Cloud LLMs ---
 google-generativeai   # For Google Gemini
 openai                # For OpenAI API (GPT models)
+
+# --- Database Drivers ---
+psycopg2-binary     # PostgreSQL driver
+pyodbc              # SQL Server driver (common choice for SQLAlchemy on Linux)

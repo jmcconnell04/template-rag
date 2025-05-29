@@ -1,77 +1,57 @@
-# docker-compose.yml
+# docker-compose.yml (Default for SQLite)
+# This file sets up the workspace with SQLite as the metadata/chat database.
+# The server application will create the SQLite DB file inside its mounted volume.
+
 services:
   server:
     build:
-      context: ./server # Specifies the build context is the 'server' directory
-      dockerfile: Dockerfile # Specifies the Dockerfile name (optional if it's 'Dockerfile')
+      context: .
+      dockerfile: ./server/Dockerfile
     ports:
-      # Maps RAG_API_HOST_PORT (from .env, defaults to 8000 if not set) on your host
-      # to port 8000 inside the container where Uvicorn is running.
       - '${RAG_API_HOST_PORT:-8000}:8000'
     volumes:
-      # For development: Mounts your local './server/app' directory
-      # to '/app/app' inside the container.
-      # This means changes you make to your Python code locally will be reflected
-      # inside the container without needing to rebuild the image.
-      # For Uvicorn to pick up changes automatically, you'd add '--reload' to its CMD.
-      - ./server/app:/app/app
+      - ./server/app:/app/app # For live development code reload
       - ./prompts:/app/prompts:ro
-      - ./rag_files/metadata_db:/app/database # This line is for SQLite
+      - ./rag_files/metadata_db:/app/database # SQLite DB file will be created here by the server
       - ./rag_files/vector_stores/chroma_data:/app/chroma_data # For ChromaDB
       - ./rag_files/seed:/app/seed_data:ro # For seed documents
-      # - ./rag_files/data:/app/data # For later
-
     env_file:
-      - .env # Loads environment variables from the .env file in the root
+      - .env
     restart: unless-stopped
-    container_name: '${WORKSPACE_NAME}-server' # Dynamically names the container
+    container_name: '${WORKSPACE_NAME}-server'
+    depends_on:
+      - ollama
 
   ollama:
     image: ollama/ollama:latest
     ports:
-      # Expose Ollama on host port 11434 for direct interaction or model pulling
-      # Ensure this port is free or change if needed, especially if running multiple Ollama instances.
       - '11434:11434'
     volumes:
-      - ollama_vol:/root/.ollama # Persists Ollama models and data
+      - ollama_vol:/root/.ollama
     container_name: '${WORKSPACE_NAME}-ollama'
     restart: unless-stopped
-    # GPU deployment settings will be in docker-compose.gpu.yml
-    # deploy:
-    #   resources:
-    #     reservations:
-    #       devices:
-    #         - driver: nvidia
-    #           count: all
-    #           capabilities: [gpu]
+    # GPU settings are in docker-compose.gpu.yml (if used as an override)
 
   open_webui:
-    image: ghcr.io/open-webui/open-webui:main # Using the official image
+    image: ghcr.io/open-webui/open-webui:main
     ports:
-      - '${OPENWEBUI_HOST_PORT:-3000}:8080' # OWI runs on 8080 in container
+      - '${OPENWEBUI_HOST_PORT:-3000}:8080'
     environment:
-      # CRITICAL: Point OpenWebUI to your custom server's OpenAI-compatible API
-      # The '/v1' suffix is conventional for OpenAI-like APIs.
       - 'OPENAI_API_BASE_URL=http://server:8000/v1'
-      # OpenWebUI requires an API key to be set, even if your server doesn't strictly validate it
-      # for this internal Docker network communication for now.
-      - 'OPENAI_API_KEY=your_dummy_api_key_for_openwebui'
-      # Optional: Disable Telemetry for OpenWebUI
+      - 'OPENAI_API_KEY=dummy_key_for_openwebui'
       - 'ENABLE_TELEMETRY=false'
-      # You can set initial admin credentials for OpenWebUI here.
-      # If not set, the first user to sign up usually becomes admin.
-      # Replace with desired admin credentials.
-      - 'WEBUI_ADMIN_USER_EMAIL=${WEBUI_ADMIN_USER_EMAIL}'
-      - 'WEBUI_ADMIN_USER_PASSWORD=${WEBUI_ADMIN_USER_PASSWORD}'
+      - 'WEBUI_ADMIN_USER_EMAIL=${WEBUI_ADMIN_USER_EMAIL:-admin@example.com}'
+      - 'WEBUI_ADMIN_USER_PASSWORD=${WEBUI_ADMIN_USER_PASSWORD:-changeme}'
     volumes:
-      - openwebui_vol:/app/backend/data # Persists OpenWebUI data (users, chats, settings)
+      - openwebui_vol:/app/backend/data
     container_name: '${WORKSPACE_NAME}-open-webui'
     depends_on:
-      - server # Ensures your server is started before OpenWebUI attempts to connect
+      - server
     restart: unless-stopped
 
 volumes:
-  ollama_vol: # Defines the named volume for Ollama
-    name: 'ollama-${WORKSPACE_NAME}' # Dynamically named based on WORKSPACE_NAME from .env
-  openwebui_vol: # Define the named volume for OpenWebUI
+  ollama_vol:
+    name: 'ollama-${WORKSPACE_NAME}'
+  openwebui_vol:
     name: 'openwebui-${WORKSPACE_NAME}'
+  # No specific volume needed here for SQLite as it's a file within a bind mount of the server

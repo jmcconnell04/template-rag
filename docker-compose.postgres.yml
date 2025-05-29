@@ -1,0 +1,82 @@
+# docker-compose-postgres.yml
+# Use this file if you set DB_TYPE=postgres in your .env file.
+# Command: docker-compose -f docker-compose-postgres.yml up -d
+
+services:
+  server:
+    build:
+      context: .
+      dockerfile: ./server/Dockerfile
+    ports:
+      - '${RAG_API_HOST_PORT:-8000}:8000'
+    volumes:
+      - ./server/app:/app/app
+      - ./prompts:/app/prompts:ro
+      # ./rag_files/metadata_db:/app/database # Not strictly needed if using Postgres, but harmless
+      - ./rag_files/vector_stores/chroma_data:/app/chroma_data
+      - ./rag_files/seed:/app/seed_data:ro
+    env_file:
+      - .env
+    restart: unless-stopped
+    container_name: '${WORKSPACE_NAME}-server'
+    depends_on:
+      ollama:
+        condition: service_started
+      postgres_db: # Server depends on PostgreSQL being healthy
+        condition: service_healthy
+
+  ollama:
+    image: ollama/ollama:latest
+    ports:
+      - '11434:11434'
+    volumes:
+      - ollama_vol:/root/.ollama
+    container_name: '${WORKSPACE_NAME}-ollama'
+    restart: unless-stopped
+
+  open_webui:
+    image: ghcr.io/open-webui/open-webui:main
+    ports:
+      - '${OPENWEBUI_HOST_PORT:-3000}:8080'
+    environment:
+      - 'OPENAI_API_BASE_URL=http://server:8000/v1'
+      - 'OPENAI_API_KEY=dummy_key_for_openwebui'
+      - 'ENABLE_TELEMETRY=false'
+      - 'WEBUI_ADMIN_USER_EMAIL=${WEBUI_ADMIN_USER_EMAIL:-admin@example.com}'
+      - 'WEBUI_ADMIN_USER_PASSWORD=${WEBUI_ADMIN_USER_PASSWORD:-changeme}'
+    volumes:
+      - openwebui_vol:/app/backend/data
+    container_name: '${WORKSPACE_NAME}-open-webui'
+    depends_on:
+      - server
+    restart: unless-stopped
+
+  postgres_db:
+    image: postgres:15-alpine
+    environment:
+      POSTGRES_USER: ${POSTGRES_USER:-rag_user}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-rag_password}
+      POSTGRES_DB: ${POSTGRES_DB} # Loaded from .env, should include ${WORKSPACE_NAME}
+    volumes:
+      - postgres_data_vol:/var/lib/postgresql/data
+    ports:
+      - '${POSTGRES_HOST_PORT:-5432}:5432'
+    restart: unless-stopped
+    container_name: '${WORKSPACE_NAME}-postgres-db'
+    healthcheck:
+      test:
+        [
+          'CMD-SHELL',
+          'pg_isready -U ${POSTGRES_USER:-rag_user} -d ${POSTGRES_DB}',
+        ]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+volumes:
+  ollama_vol:
+    name: 'ollama-${WORKSPACE_NAME}'
+  openwebui_vol:
+    name: 'openwebui-${WORKSPACE_NAME}'
+  postgres_data_vol:
+    name: 'pgdata-${WORKSPACE_NAME}'
