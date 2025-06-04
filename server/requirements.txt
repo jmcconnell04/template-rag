@@ -6,6 +6,11 @@ httpx
 sqlalchemy
 chromadb                # Vector store
 sentence-transformers   # For generating text embeddings
+# Libraries for document parsing
+python-docx
+PyPDF2
+openpyxl
+python-multipart
 # tiktoken              # Optional, but often useful with sentence-transformers or for token counting
 
 
