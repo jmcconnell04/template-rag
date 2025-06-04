@@ -53,3 +53,49 @@ Content-Type: application/json
   "model": "llama3:70b",
   "prompt": "Explain the theory of general relativity in simple terms."
 }
+
+
+### Test OpenAI Non-Streaming
+POST http://localhost:8000/v1/chat/completions 
+Content-Type: application/json
+# Authorization: Bearer YOUR_IF_NEEDED_TOKEN_FOR_YOUR_SERVER
+
+{
+  "model": "openai/gpt-3.5-turbo",
+  "messages": [
+    {"role": "user", "content": "What is the capital of Canada in a single word?"}
+  ],
+  "stream": false
+}
+
+### Test Gemini Non-Streaming
+POST http://localhost:8000/v1/chat/completions
+Content-Type: application/json
+
+{
+  "model": "gemini/gemini-1.5-flash-latest",
+  "messages": [
+    {"role": "user", "content": "What are three primary colors?"}
+  ],
+  "stream": false
+}
+
+
+
+# Goal: Allow users to upload documents via OpenWebUI, which are then processed and added to the RAG knowledge base of their currently active project.
+# Action:
+# Investigate OpenWebUI's document upload mechanism (expected endpoint, payload format).
+# Create a new API endpoint in server/app/main.py (e.g., /v1/documents/upload).
+# This endpoint will use the active project context and call rag_service.add_document_to_project_collection().
+# Basic Audit Logging Implementation (Expand):
+
+# Goal: Populate the AuditLogs table in SQLite to demonstrate auditability.
+# Action: Ensure audit_service.py and the AuditLog model are in place. Integrate more calls to audit_service.log_action() at key points (project switch, document upload, RAG query, LLM call, user identification).
+# README.md Finalization:
+
+# Goal: A comprehensive user guide.
+# Action: Continuously update with setup instructions (SQLite, PostgreSQL), configuration details, GPU usage, feature explanations (like the !use_project command), and a basic Azure App Service PoC deployment guide.
+# Azure OpenAI & Azure AI Search Integration (Post v1 Polish):
+
+# Goal: Provide an alternative RAG backend strategy using Azure's PaaS services.
+# Status: You've decided to insert this after the current core items are polished. This remains a future enhancement.
