@@ -4,8 +4,9 @@ from chromadb.utils import embedding_functions
 from typing import List, Dict, Any, Optional, Union # Import Union
 import os
 import re
-import uuid 
+import uuid
 import logging
+import io
 
 from ..config import settings
 
@@ -63,8 +64,60 @@ def _sanitize_collection_name(name: str, max_len: int = 63) -> str:
     if len(name) > max_len : name = name[:max_len] 
     if not name or not name[-1].isalnum(): name = name[:-1] + "e" if len(name) > 1 else f"{name}e"
     if len(name) > max_len : name = name[:max_len] 
-    if len(name) < 3: name = f"col_{uuid.uuid4().hex[:max_len-4]}" 
+    if len(name) < 3: name = f"col_{uuid.uuid4().hex[:max_len-4]}"
     return name[:max_len]
+
+def extract_text_from_bytes(file_bytes: bytes, filename: str) -> str:
+    """Return text extracted from uploaded bytes based on file extension."""
+    ext = os.path.splitext(filename)[1].lower()
+
+    if ext in {".txt", ".md"}:
+        try:
+            return file_bytes.decode("utf-8")
+        except Exception:
+            return file_bytes.decode("utf-8", errors="ignore")
+
+    if ext == ".docx":
+        try:
+            from docx import Document  # type: ignore
+            doc = Document(io.BytesIO(file_bytes))
+            return "\n".join(p.text for p in doc.paragraphs)
+        except Exception as e:
+            logger.error(f"RAGService: Failed to read DOCX '{filename}': {e}")
+            return ""
+
+    if ext == ".pdf":
+        try:
+            from PyPDF2 import PdfReader  # type: ignore
+            reader = PdfReader(io.BytesIO(file_bytes))
+            texts = []
+            for page in reader.pages:
+                page_text = page.extract_text() or ""
+                if page_text:
+                    texts.append(page_text)
+            return "\n".join(texts)
+        except Exception as e:
+            logger.error(f"RAGService: Failed to read PDF '{filename}': {e}")
+            return ""
+
+    if ext in {".xls", ".xlsx"}:
+        try:
+            import openpyxl  # type: ignore
+            wb = openpyxl.load_workbook(io.BytesIO(file_bytes), data_only=True, read_only=True)
+            rows = []
+            for sheet in wb.worksheets:
+                for row in sheet.iter_rows(values_only=True):
+                    values = [str(c) if c is not None else "" for c in row]
+                    row_text = " ".join(values).strip()
+                    if row_text:
+                        rows.append(row_text)
+            return "\n".join(rows)
+        except Exception as e:
+            logger.error(f"RAGService: Failed to read Excel '{filename}': {e}")
+            return ""
+
+    logger.warning(f"RAGService: Unsupported file extension '{ext}' for '{filename}'. Attempting text decode.")
+    return file_bytes.decode("utf-8", errors="ignore")
 
 def get_or_create_project_collection(project_id: str) -> Optional[chromadb.api.models.Collection.Collection]:
     if not is_rag_service_ready():
@@ -147,23 +200,31 @@ def seed_documents_from_directory(project_id: str, seed_dir_path: str):
     seeded_count = 0
     for filename in os.listdir(seed_dir_path):
         file_path = os.path.join(seed_dir_path, filename)
-        if os.path.isfile(file_path) and (filename.lower().endswith(".txt") or filename.lower().endswith(".md")):
+        if os.path.isfile(file_path):
             try:
-                with open(file_path, 'r', encoding='utf-8') as f:
-                    content = f.read()
+                with open(file_path, "rb") as f:
+                    bytes_data = f.read()
+                content = extract_text_from_bytes(bytes_data, filename)
+                if not content.strip():
+                    continue
                 doc_id_base = os.path.splitext(filename)[0]
                 add_document_to_project_collection(
                     project_id=project_id,
                     document_text=content,
-                    document_id=doc_id_base, 
+                    document_id=doc_id_base,
                     metadata={"source_file": filename}
                 )
                 seeded_count += 1
             except Exception as e:
-                logger.error(f"RAGService: Failed to seed document '{filename}' from '{file_path}': {e}", exc_info=True)
+                logger.error(
+                    f"RAGService: Failed to seed document '{filename}' from '{file_path}': {e}",
+                    exc_info=True,
+                )
     
-    if seeded_count > 0: 
+    if seeded_count > 0:
         logger.info(f"RAGService: Seeded {seeded_count} documents for project '{project_id}'.")
-    else: 
-        logger.info(f"RAGService: No suitable (.txt, .md) documents found or seeded for project '{project_id}' from '{seed_dir_path}'.")
+    else:
+        logger.info(
+            f"RAGService: No suitable documents found for project '{project_id}' in '{seed_dir_path}'."
+        )
 

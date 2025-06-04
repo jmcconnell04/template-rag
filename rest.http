@@ -80,6 +80,21 @@ Content-Type: application/json
   "stream": false
 }
 
+### Upload Document to Active Project (PDF example)
+POST http://localhost:8000/v1/documents/upload
+Content-Type: multipart/form-data
+
+--boundary
+Content-Disposition: form-data; name="file"; filename="sample.pdf"
+Content-Type: application/pdf
+
+(binary content would go here)
+--boundary
+Content-Disposition: form-data; name="user"
+
+guest_user
+--boundary--
+
 
 
 # Goal: Allow users to upload documents via OpenWebUI, which are then processed and added to the RAG knowledge base of their currently active project.

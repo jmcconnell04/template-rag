@@ -1,13 +1,14 @@
 # server/app/main.py
-from fastapi import FastAPI, HTTPException, Request as FastAPIRequest, Depends
+from fastapi import FastAPI, HTTPException, Request as FastAPIRequest, Depends, UploadFile, File, Form
 from fastapi.responses import StreamingResponse
 from sqlalchemy.orm import Session
 import uuid
-import time 
-import asyncio 
+import time
+import asyncio
 from typing import List, Dict, Optional, Union, Any
-import logging 
-import json 
+import logging
+import json
+import os
 
 # Project-specific imports
 from .config import settings # CORRECTED IMPORT for settings
@@ -265,3 +266,49 @@ async def chat_completions(request: ChatCompletionRequest, fastapi_request: Fast
         return response_payload
 
 # (OllamaSimplePromptRequest class and /test_ollama_prompt endpoint if kept)
+
+@app.post("/v1/documents/upload", tags=["Documents"])
+async def upload_document(
+    file: UploadFile = File(...),
+    user: Optional[str] = Form(None),
+    db: Session = Depends(get_db)
+):
+    """Upload a document and add it to the active project's vector store."""
+
+    if not rag_service.is_rag_service_ready():
+        raise HTTPException(status_code=503, detail="RAG service not ready")
+
+    user_identifier = user if user else "guest_user"
+    db_user = chat_service.get_or_create_user(db, user_identifier=user_identifier)
+
+    current_project_id = active_project_for_user.get(db_user.id)
+    project_obj: Optional[db_models.Project] = None
+    if current_project_id:
+        project_obj = db.query(db_models.Project).filter(db_models.Project.id == current_project_id).first()
+        if not project_obj:
+            active_project_for_user.pop(db_user.id, None)
+            current_project_id = None
+
+    if not current_project_id:
+        default_project_name = f"{settings.WORKSPACE_NAME} Project"
+        project_obj = chat_service.get_or_create_project(db, project_name=default_project_name)
+        chat_service.ensure_user_linked_to_project(db, user_id=db_user.id, project_id=project_obj.id)
+        active_project_for_user[db_user.id] = project_obj.id
+
+    project_obj = project_obj or db.query(db_models.Project).filter(db_models.Project.id == current_project_id).first()
+
+    content_bytes = await file.read()
+    document_text = rag_service.extract_text_from_bytes(content_bytes, file.filename or "uploaded")
+    if not document_text.strip():
+        raise HTTPException(status_code=400, detail="No extractable text found in file")
+
+    document_id_base = os.path.splitext(file.filename)[0] if file.filename else f"upload_{uuid.uuid4().hex[:8]}"
+
+    rag_service.add_document_to_project_collection(
+        project_id=project_obj.id,
+        document_text=document_text,
+        document_id=document_id_base,
+        metadata={"source_file": file.filename}
+    )
+
+    return {"status": "uploaded", "project_id": project_obj.id, "document_id": document_id_base}
